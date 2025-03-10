@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -44,12 +45,12 @@ func CreateBankAccount(bankdb *gorm.DB, user PlaidUser) error {
 
 }
 
-// func GetRecordUsingEmail(authdb *gorm.DB, email string) (BankUser, error) {
-// 	var user BankUser
-// 	result := authdb.Where("email = ?", email).First(&user)
-// 	if result.Error != nil {
-// 		fmt.Println("Error: ", result.Error)
-// 		return BankUser{}, errors.New("no records found")
-// 	}
-// 	return user, nil
-// }
+func GetRecordUsingTrackId(bankdb *gorm.DB, trackId string) (PlaidUser, error) {
+	var user PlaidUser
+	result := bankdb.Where("trackId = ?", trackId).First(&user)
+	if result.Error != nil {
+		fmt.Println("Error: ", result.Error)
+		return PlaidUser{}, errors.New("no records found")
+	}
+	return user, nil
+}

@@ -93,7 +93,7 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 
 	shareableId := utils.EncryptID(accountId)
-	trackId := fmt.Sprintf("PLAID%s%v", plaidAccount.PlaidUser.FirstName, time.Now().Format("20060102150405"))
+	trackId := fmt.Sprintf("PLAID%s%v", plaidAccount.PlaidUser.FirstName[:3], time.Now().Format("20060102150405"))
 
 	newPlaidUser := db.PlaidUser{
 		TrackId:          trackId,
@@ -110,7 +110,13 @@ func GenerateAccessToken(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Plaid Account Linked Successfully"})
+	plaidUserFromDb, err := db.GetRecordUsingTrackId(PgDb, trackId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Plaid Account Linked Successfully", "plaidUser": plaidUserFromDb})
 
 }
 

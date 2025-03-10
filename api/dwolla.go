@@ -104,14 +104,13 @@ func AddFundingSource(dwollaCustomerId string, processorToken string, bankName s
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("{} fsu: ", fundingSourceResponse)
-	//extract funding source url from response
+	fmt.Println("{} fsu: ", fundingSourceResponse) //extract funding source url from response
+	fundingSourceId := fundingSourceResponse["id"]
+	fundingSourceUrl := fmt.Sprintf("%s/funding-sources/%s", DwollaBaseUrl, fundingSourceId)
+	//return funding source url
+	return fundingSourceUrl, nil
 
 	// CreateFundingSource(dwollaAuthLinks, ctx, dwollaCustomerId, processorToken, bankName)
-
-	//return funding source url
-	return "", nil
-
 }
 
 func RetrieveAccount(client *dwolla.Client) error {
