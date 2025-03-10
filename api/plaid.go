@@ -15,7 +15,7 @@ var (
 	PaymentProcessor   = "dwolla"
 )
 
-func CreateConfig() {
+func CreatePlaidConfig() {
 
 	configuration := plaid.NewConfiguration()
 	configuration.AddDefaultHeader("PLAID-CLIENT-ID", PlaidClientId)
@@ -85,16 +85,16 @@ func ExchangePublicToken(publicToken string) (string, string, error) {
 
 }
 
-func GetAccounts(accessToken string) (string, error) {
+func GetAccounts(accessToken string) (plaid.AccountBase, error) {
 	ctx := context.Background()
 	accountsGetResp, _, err := PlaidAPIClient.PlaidApi.AccountsGet(ctx).AccountsGetRequest(
 		*plaid.NewAccountsGetRequest(accessToken),
 	).Execute()
 	if err != nil {
-		return "", fmt.Errorf("error while getting account info: %v", err.Error())
+		return plaid.AccountBase{}, fmt.Errorf("error while getting account info: %v", err.Error())
 	}
-	accountID := accountsGetResp.GetAccounts()[0].GetAccountId()
-	return accountID, nil
+	accountData := accountsGetResp.GetAccounts()[0]
+	return accountData, nil
 }
 
 func CreataDwollaAccount(accessToken string, accountID string) (string, error) {

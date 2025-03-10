@@ -1,19 +1,26 @@
 package utils
 
 import (
+	"encoding/base64"
 	"log"
-	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/logeshwarann-dev/bits-bank_plaid-service/api"
 )
 
 func LoadEnv() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file: ", err.Error())
 	}
+}
 
-	api.PlaidClientId = os.Getenv("PLAID_CLIENT_ID")
-	api.PlaidSecret = os.Getenv("PLAID_SECRET")
+func EncryptID(id string) string {
+	return base64.StdEncoding.EncodeToString([]byte(id))
+}
 
+func DecryptID(encoded string) (string, error) {
+	decodedBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", err
+	}
+	return string(decodedBytes), nil
 }

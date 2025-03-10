@@ -3,9 +3,15 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/logeshwarann-dev/bits-bank_plaid-service/db"
+	"github.com/logeshwarann-dev/bits-bank_plaid-service/utils"
+	"gorm.io/gorm"
 )
+
+var PgDb *gorm.DB
 
 type User struct {
 	Email string `json:"email" binding:"required"`
@@ -13,16 +19,18 @@ type User struct {
 }
 
 type BankUser struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	Address1    string `json:"address1"`
-	City        string `json:"city"`
-	State       string `json:"state"`
-	PostalCode  string `json:"postal_code"`
-	DateOfBirth string `json:"date_of_birth"`
-	AadharNo    string `json:"aadhar_no"`
+	Email             string `json:"email"`
+	Password          string `json:"password"`
+	FirstName         string `json:"firstName"`
+	LastName          string `json:"lastName"`
+	DwollaCustomerUrl string `json:"dwollaCustomerUrl"`
+	DwollaCustomerId  string `json:"dwollaCustomerId"`
+	Address1          string `json:"address1"`
+	City              string `json:"city"`
+	State             string `json:"state"`
+	PostalCode        string `json:"postalCode"`
+	DateOfBirth       string `json:"dateOfBbirth"`
+	AadharNo          string `json:"aadharNo"`
 }
 
 type PlaidAccount struct {
@@ -62,7 +70,9 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 	fmt.Println("Access Token: ", accessToken, "| Item ID: ", itemId)
 
-	accountId, err := GetAccounts(accessToken)
+	accountData, err := GetAccounts(accessToken)
+	accountId := accountData.GetAccountId()
+	bankName := accountData.GetName()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -76,4 +86,46 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 	fmt.Println("Processor Token: ", processorToken)
 
+	fundingSrcUrl, err := AddFundingSource(plaidAccount.PlaidUser.DwollaCustomerId, processorToken, bankName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	shareableId := utils.EncryptID(accountId)
+	trackId := fmt.Sprintf("PLAID%s%v", plaidAccount.PlaidUser.FirstName, time.Now().Format("20060102150405"))
+
+	newPlaidUser := db.PlaidUser{
+		TrackId:          trackId,
+		AccountId:        accountId,
+		BankId:           itemId,
+		AccessToken:      accessToken,
+		FundingSourceUrl: fundingSrcUrl,
+		ShareableId:      shareableId,
+		UserId:           plaidAccount.PlaidUser.Email,
+	}
+
+	if err = db.CreateBankAccount(PgDb, newPlaidUser); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Plaid Account Linked Successfully"})
+
+}
+
+func CreateDwollaCustomerId(c *gin.Context) {
+	var dwollaUser BankUser
+	if err := c.ShouldBindJSON(&dwollaUser); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
+		return
+	}
+
+	customerId, customerUrl, err := CreateDwollaCustomer(dwollaUser)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"customer_id": customerId, "customer_url": customerUrl})
 }
