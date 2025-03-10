@@ -41,12 +41,15 @@ type PlaidAccount struct {
 func GenerateLinkToken(c *gin.Context) {
 	var plaidUser User
 	if err := c.ShouldBindJSON(&plaidUser); err != nil {
+		// fmt.Println(err.Error())
+		fmt.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
 
 	linkToken, err := CreatePlaidLinkToken(plaidUser)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -58,6 +61,7 @@ func GenerateLinkToken(c *gin.Context) {
 func GenerateAccessToken(c *gin.Context) {
 	var plaidAccount PlaidAccount
 	if err := c.ShouldBindJSON(&plaidAccount); err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
@@ -65,6 +69,7 @@ func GenerateAccessToken(c *gin.Context) {
 
 	accessToken, itemId, err := ExchangePublicToken(plaidAccount.PublicToken)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -74,6 +79,7 @@ func GenerateAccessToken(c *gin.Context) {
 	accountId := accountData.GetAccountId()
 	bankName := accountData.GetName()
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -81,6 +87,7 @@ func GenerateAccessToken(c *gin.Context) {
 
 	processorToken, err := CreataDwollaAccount(accessToken, accountId)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -88,6 +95,7 @@ func GenerateAccessToken(c *gin.Context) {
 
 	fundingSrcUrl, err := AddFundingSource(plaidAccount.PlaidUser.DwollaCustomerId, processorToken, bankName)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -106,12 +114,14 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 
 	if err = db.CreateBankAccount(PgDb, newPlaidUser); err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	plaidUserFromDb, err := db.GetRecordUsingTrackId(PgDb, trackId)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -123,12 +133,14 @@ func GenerateAccessToken(c *gin.Context) {
 func CreateDwollaCustomerId(c *gin.Context) {
 	var dwollaUser BankUser
 	if err := c.ShouldBindJSON(&dwollaUser); err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
 
 	customerId, customerUrl, err := CreateDwollaCustomer(dwollaUser)
 	if err != nil {
+		fmt.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

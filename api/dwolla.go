@@ -29,6 +29,7 @@ func CreateOnDemandAuthorization(client *dwolla.Client) (dwolla.Links, error) {
 	ctx := context.Background()
 	onDemandAuth, err := client.OnDemandAuthorization.Create(ctx)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, fmt.Errorf("error while creating on-demand Auth: %v", err.Error())
 	}
 
@@ -47,6 +48,7 @@ func CreateDwollaCustomer(dwollaUser BankUser) (string, string, error) {
 	}
 	newDwollaCustomer, err := DwollaClient.Customer.Create(ctx, &dwollaCustomerPaylod)
 	if err != nil {
+		fmt.Println(err.Error())
 		return "", "", fmt.Errorf("error while creating Dwolla customer: %v", err.Error())
 	}
 	dwollaCustomerUrl := fmt.Sprintf("%s/customers/%s", DwollaBaseUrl, newDwollaCustomer.ID)
@@ -60,6 +62,7 @@ func CreateFundingSource(dwollaAuthLinks dwolla.Links, ctx context.Context, dwol
 	}
 	dwollaCustomer, err := DwollaClient.Customer.Retrieve(ctx, dwollaCustomerId)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, fmt.Errorf("error while retrieving dwolla customer: %v", err.Error())
 	}
 	body := dwolla.FundingSourceRequest{
@@ -70,6 +73,7 @@ func CreateFundingSource(dwollaAuthLinks dwolla.Links, ctx context.Context, dwol
 	}
 	fundingSource, err := dwollaCustomer.CreateFundingSource(ctx, &body)
 	if err != nil {
+		fmt.Println(err.Error())
 		return nil, fmt.Errorf("error while creating funding source: %v", err.Error())
 	}
 	return fundingSource, nil
@@ -87,6 +91,7 @@ func CreateFundingSourceUsingPostCall(client *dwolla.Client, ctx context.Context
 	headers := &http.Header{}
 	var responseContainer map[string]interface{}
 	if err := client.Post(ctx, dwollaCreateFundingSourceUrl, fundingSourcePayload, headers, responseContainer); err != nil {
+		fmt.Println(err.Error())
 		return nil, fmt.Errorf("error while creating funding source: %v", err.Error())
 	}
 	fmt.Println("Funding Source Response: ", responseContainer)
@@ -97,11 +102,13 @@ func AddFundingSource(dwollaCustomerId string, processorToken string, bankName s
 	ctx := context.Background()
 	dwollaAuthLinks, err := CreateOnDemandAuthorization(DwollaClient)
 	if err != nil {
+		fmt.Println(err.Error())
 		return "", err
 	}
 
 	fundingSourceResponse, err := CreateFundingSourceUsingPostCall(DwollaClient, ctx, dwollaCustomerId, processorToken, bankName, dwollaAuthLinks)
 	if err != nil {
+		fmt.Println(err.Error())
 		return "", err
 	}
 	fmt.Println("{} fsu: ", fundingSourceResponse) //extract funding source url from response
@@ -117,6 +124,7 @@ func RetrieveAccount(client *dwolla.Client) error {
 	ctx := context.Background()
 	res, err := client.Account.Retrieve(ctx)
 	if err != nil {
+		fmt.Println(err.Error())
 		fmt.Println("Error:", err)
 		return err
 	}

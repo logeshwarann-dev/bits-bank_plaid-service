@@ -23,6 +23,7 @@ func ConnectToDB() *gorm.DB {
 	dsn := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=%s", DB_USER, DB_PWD, DB_NAME, DB_HOST, DB_PORT, DB_SSL)
 	gormDb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
+		fmt.Println(err.Error())
 		log.Fatal("Error connection to DB: ", err.Error())
 	}
 
@@ -32,6 +33,7 @@ func ConnectToDB() *gorm.DB {
 
 func AddUser(bankdb *gorm.DB, plaidUser PlaidUser) error {
 	if err := bankdb.Create(&plaidUser).Error; err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
 	return nil
@@ -39,6 +41,7 @@ func AddUser(bankdb *gorm.DB, plaidUser PlaidUser) error {
 
 func CreateBankAccount(bankdb *gorm.DB, user PlaidUser) error {
 	if err := AddUser(bankdb, user); err != nil {
+		fmt.Println(err.Error())
 		return fmt.Errorf("error adding plaid user in db: %v", err.Error())
 	}
 	return nil
