@@ -15,6 +15,11 @@ var (
 	PaymentProcessor   = "dwolla"
 )
 
+type GetInstitutionReq struct {
+	InstitutionId string   `json:"institution_id"`
+	CountryCode   []string `json:"country_codes"`
+}
+
 func CreatePlaidConfig() {
 
 	configuration := plaid.NewConfiguration()
@@ -28,7 +33,7 @@ func CreatePlaidConfig() {
 func CreatePlaidLinkToken(plaidUser User) (string, error) {
 	ctx := context.Background()
 	user := plaid.LinkTokenCreateRequestUser{
-		ClientUserId: plaidUser.Email,
+		ClientUserId: plaidUser.UserId,
 	}
 	request := plaid.NewLinkTokenCreateRequest(
 		plaidUser.Name,
@@ -88,17 +93,18 @@ func ExchangePublicToken(publicToken string) (string, string, error) {
 
 }
 
-func GetAccounts(accessToken string) (plaid.AccountBase, error) {
+func GetAccounts(accessToken string) (plaid.AccountBase, plaid.Item, error) {
 	ctx := context.Background()
 	accountsGetResp, _, err := PlaidAPIClient.PlaidApi.AccountsGet(ctx).AccountsGetRequest(
 		*plaid.NewAccountsGetRequest(accessToken),
 	).Execute()
 	if err != nil {
 		fmt.Println(err.Error())
-		return plaid.AccountBase{}, fmt.Errorf("error while getting account info: %v", err.Error())
+		return plaid.AccountBase{}, plaid.Item{}, fmt.Errorf("error while getting account info: %v", err.Error())
 	}
 	accountData := accountsGetResp.GetAccounts()[0]
-	return accountData, nil
+	accountItem := accountsGetResp.Item
+	return accountData, accountItem, nil
 }
 
 func CreataDwollaAccount(accessToken string, accountID string) (string, error) {
@@ -112,4 +118,15 @@ func CreataDwollaAccount(accessToken string, accountID string) (string, error) {
 	}
 	processorToken := processorTokenCreateResp.ProcessorToken
 	return processorToken, nil
+}
+
+func GetAccountInstituionId(institutionId string) (string, error) {
+	ctx := context.Background()
+	requestPayload := PlaidAPIClient.PlaidApi.InstitutionsGetById(ctx).InstitutionsGetByIdRequest(plaid.InstitutionsGetByIdRequest{InstitutionId: institutionId, CountryCodes: []plaid.CountryCode{plaid.COUNTRYCODE_US}})
+	institutionResponse, _, err := PlaidAPIClient.PlaidApi.InstitutionsGetByIdExecute(requestPayload)
+	if err != nil {
+		return "", fmt.Errorf("error while getting institution: %v", err.Error())
+	}
+	instId := institutionResponse.Institution.InstitutionId
+	return instId, nil
 }

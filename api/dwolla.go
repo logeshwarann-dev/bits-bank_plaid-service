@@ -80,17 +80,18 @@ func CreateFundingSource(dwollaAuthLinks dwolla.Links, ctx context.Context, dwol
 
 }
 
-func CreateFundingSourceUsingPostCall(client *dwolla.Client, ctx context.Context, dwollaCustomerId string, processorToken string, bankName string, dwollaAuthLinks dwolla.Links) (map[string]interface{}, error) {
+func CreateFundingSourceUsingPostCall(client *dwolla.Client, ctx context.Context, dwollaCustomerUrl string, processorToken string, bankName string, dwollaAuthLinks dwolla.Links) (map[string]interface{}, error) {
 
 	fundingSourcePayload := FundingSourcePayload{
 		Links:      dwollaAuthLinks,
 		Name:       bankName,
 		PlaidToken: processorToken,
 	}
-	dwollaCreateFundingSourceUrl := fmt.Sprintf("customers/%s/funding-sources", dwollaCustomerId)
+	dwollaCreateFundingSourceUrl := fmt.Sprintf("%s/funding-sources", dwollaCustomerUrl)
+	fmt.Println("Dwolla FS url: ", dwollaCreateFundingSourceUrl)
 	headers := &http.Header{}
 	var responseContainer map[string]interface{}
-	if err := client.Post(ctx, dwollaCreateFundingSourceUrl, fundingSourcePayload, headers, responseContainer); err != nil {
+	if err := client.Post(ctx, dwollaCreateFundingSourceUrl, fundingSourcePayload, headers, &responseContainer); err != nil {
 		fmt.Println(err.Error())
 		return nil, fmt.Errorf("error while creating funding source: %v", err.Error())
 	}
@@ -98,7 +99,7 @@ func CreateFundingSourceUsingPostCall(client *dwolla.Client, ctx context.Context
 	return responseContainer, nil
 }
 
-func AddFundingSource(dwollaCustomerId string, processorToken string, bankName string) (string, error) {
+func AddFundingSource(dwollaCustomerUrl string, processorToken string, bankName string) (string, error) {
 	ctx := context.Background()
 	dwollaAuthLinks, err := CreateOnDemandAuthorization(DwollaClient)
 	if err != nil {
@@ -106,12 +107,11 @@ func AddFundingSource(dwollaCustomerId string, processorToken string, bankName s
 		return "", err
 	}
 
-	fundingSourceResponse, err := CreateFundingSourceUsingPostCall(DwollaClient, ctx, dwollaCustomerId, processorToken, bankName, dwollaAuthLinks)
+	fundingSourceResponse, err := CreateFundingSourceUsingPostCall(DwollaClient, ctx, dwollaCustomerUrl, processorToken, bankName, dwollaAuthLinks)
 	if err != nil {
 		fmt.Println(err.Error())
 		return "", err
 	}
-	fmt.Println("{} fsu: ", fundingSourceResponse) //extract funding source url from response
 	fundingSourceId := fundingSourceResponse["id"]
 	fundingSourceUrl := fmt.Sprintf("%s/funding-sources/%s", DwollaBaseUrl, fundingSourceId)
 	//return funding source url

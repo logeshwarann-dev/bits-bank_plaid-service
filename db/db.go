@@ -50,10 +50,20 @@ func CreateBankAccount(bankdb *gorm.DB, user PlaidUser) error {
 
 func GetRecordUsingTrackId(bankdb *gorm.DB, trackId string) (PlaidUser, error) {
 	var user PlaidUser
-	result := bankdb.Where("trackId = ?", trackId).First(&user)
+	result := bankdb.Where("track_id = ?", trackId).First(&user)
 	if result.Error != nil {
 		fmt.Println("Error: ", result.Error)
 		return PlaidUser{}, errors.New("no records found")
 	}
 	return user, nil
+}
+
+func GetAllRecordUsingUserId(bankdb *gorm.DB, userId string) ([]PlaidUser, error) {
+	var accounts []PlaidUser
+	result := bankdb.Where("user_id <> ?", userId).Find(&accounts)
+	if result.Error != nil {
+		fmt.Println("Error: ", result.Error)
+		return []PlaidUser{}, errors.New("no records found")
+	}
+	return accounts, nil
 }
