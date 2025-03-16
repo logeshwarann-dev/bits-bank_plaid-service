@@ -23,17 +23,17 @@ func ConnectToDB() *gorm.DB {
 	dsn := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%s sslmode=%s", DB_USER, DB_PWD, DB_NAME, DB_HOST, DB_PORT, DB_SSL)
 	gormDb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		log.Fatal("Error connection to DB: ", err.Error())
 	}
 
-	fmt.Println("DB Connection Successful!")
+	log.Println("DB Connection Successful!")
 	return gormDb
 }
 
 func AddUser(bankdb *gorm.DB, plaidUser PlaidUser) error {
 	if err := bankdb.Create(&plaidUser).Error; err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return err
 	}
 	return nil
@@ -41,7 +41,7 @@ func AddUser(bankdb *gorm.DB, plaidUser PlaidUser) error {
 
 func CreateBankAccount(bankdb *gorm.DB, user PlaidUser) error {
 	if err := AddUser(bankdb, user); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return fmt.Errorf("error adding plaid user in db: %v", err.Error())
 	}
 	return nil
@@ -52,7 +52,17 @@ func GetRecordUsingTrackId(bankdb *gorm.DB, trackId string) (PlaidUser, error) {
 	var user PlaidUser
 	result := bankdb.Where("track_id = ?", trackId).First(&user)
 	if result.Error != nil {
-		fmt.Println("Error: ", result.Error)
+		log.Println("Error: ", result.Error)
+		return PlaidUser{}, errors.New("no records found")
+	}
+	return user, nil
+}
+
+func GetRecordUsingAccountId(bankdb *gorm.DB, accountId string) (PlaidUser, error) {
+	var user PlaidUser
+	result := bankdb.Where("account_id = ?", accountId).First(&user)
+	if result.Error != nil {
+		log.Println("Error: ", result.Error)
 		return PlaidUser{}, errors.New("no records found")
 	}
 	return user, nil
@@ -60,9 +70,9 @@ func GetRecordUsingTrackId(bankdb *gorm.DB, trackId string) (PlaidUser, error) {
 
 func GetAllRecordUsingUserId(bankdb *gorm.DB, userId string) ([]PlaidUser, error) {
 	var accounts []PlaidUser
-	result := bankdb.Where("user_id <> ?", userId).Find(&accounts)
+	result := bankdb.Where("user_id = ?", userId).Find(&accounts)
 	if result.Error != nil {
-		fmt.Println("Error: ", result.Error)
+		log.Println("Error: ", result.Error)
 		return []PlaidUser{}, errors.New("no records found")
 	}
 	return accounts, nil

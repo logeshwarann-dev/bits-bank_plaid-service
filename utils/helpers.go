@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/base64"
-	"fmt"
 	"log"
 	"os"
 
@@ -12,7 +11,7 @@ import (
 
 func LoadEnv() {
 	if err := godotenv.Load(); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		log.Fatal("Error loading .env file: ", err.Error())
 	}
 	db.DB_HOST = os.Getenv("DB_HOST")
@@ -30,7 +29,7 @@ func EncryptID(id string) string {
 func DecryptID(encoded string) (string, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return "", err
 	}
 	return string(decodedBytes), nil

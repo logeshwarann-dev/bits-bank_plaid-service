@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/plaid/plaid-go/plaid"
 )
@@ -52,7 +53,7 @@ func CreatePlaidLinkToken(plaidUser User) (string, error) {
 	})
 	resp, _, err := PlaidAPIClient.PlaidApi.LinkTokenCreate(ctx).LinkTokenCreateRequest(*request).Execute()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return "", fmt.Errorf("error while creating link token: %v", err.Error())
 	}
 	linkToken := resp.GetLinkToken()
@@ -69,7 +70,7 @@ func ExchangePublicTokenSandBoxMethod(plaidUser User) (string, error) {
 		),
 	).Execute()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return "", fmt.Errorf("error while creating public token: %v", err.Error())
 
 	}
@@ -84,7 +85,7 @@ func ExchangePublicToken(publicToken string) (string, string, error) {
 		*plaid.NewItemPublicTokenExchangeRequest(publicToken),
 	).Execute()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return "", "", fmt.Errorf("error while exhanging token: %v", err.Error())
 	}
 	accessToken := exchangePublicTokenResp.GetAccessToken()
@@ -99,11 +100,17 @@ func GetAccounts(accessToken string) (plaid.AccountBase, plaid.Item, error) {
 		*plaid.NewAccountsGetRequest(accessToken),
 	).Execute()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return plaid.AccountBase{}, plaid.Item{}, fmt.Errorf("error while getting account info: %v", err.Error())
 	}
 	accountData := accountsGetResp.GetAccounts()[0]
-	accountItem := accountsGetResp.Item
+	accountItem := accountsGetResp.GetItem()
+	// request := plaid.NewInstitutionsGetRequest(10, 0, []plaid.CountryCode{plaid.COUNTRYCODE_US})
+	// resp, _, err := PlaidAPIClient.PlaidApi.InstitutionsGet(ctx).InstitutionsGetRequest(*request).Execute()
+	// if err != nil {
+	// 	log.Println("error occured while getting institution: ", err.Error())
+	// }
+	// log.Println("Response from Get Institution: ", resp.)
 	return accountData, accountItem, nil
 }
 
@@ -113,7 +120,7 @@ func CreataDwollaAccount(accessToken string, accountID string) (string, error) {
 		*plaid.NewProcessorTokenCreateRequest(accessToken, accountID, PaymentProcessor),
 	).Execute()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return "", fmt.Errorf("error while creating Dwolla account: %v", err.Error())
 	}
 	processorToken := processorTokenCreateResp.ProcessorToken

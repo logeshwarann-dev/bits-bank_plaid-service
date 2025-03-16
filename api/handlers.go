@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,6 +20,10 @@ type User struct {
 	UserId string `json:"userId" binding:"required"`
 	Email  string `json:"email" binding:"required"`
 	Name   string `json:"name" binding:"required"`
+}
+
+type TrackIdRequest struct {
+	TrackId string `json:"trackId" binding:"required"`
 }
 
 type BankUserId struct {
@@ -63,19 +68,19 @@ type PlaidAccount struct {
 func GenerateLinkToken(c *gin.Context) {
 	var plaidUser User
 	if err := c.ShouldBindJSON(&plaidUser); err != nil {
-		// fmt.Println(err.Error())
-		fmt.Println(err.Error())
+		// log.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
 
 	linkToken, err := CreatePlaidLinkToken(plaidUser)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println("Link Token: ", linkToken)
+	log.Println("Link Token: ", linkToken)
 	c.JSON(http.StatusOK, gin.H{"link_token": linkToken})
 
 }
@@ -83,41 +88,41 @@ func GenerateLinkToken(c *gin.Context) {
 func GenerateAccessToken(c *gin.Context) {
 	var plaidAccount PlaidAccount
 	if err := c.ShouldBindJSON(&plaidAccount); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
-	fmt.Println("Public Token: ", plaidAccount.PublicToken, "| Plaid User: ", plaidAccount.PlaidUser)
+	log.Println("Public Token: ", plaidAccount.PublicToken, "| Plaid User: ", plaidAccount.PlaidUser)
 
 	accessToken, itemId, err := ExchangePublicToken(plaidAccount.PublicToken)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println("Access Token: ", accessToken, "| Item ID: ", itemId)
+	log.Println("Access Token: ", accessToken, "| Item ID: ", itemId)
 
 	accountData, _, err := GetAccounts(accessToken)
 	accountId := accountData.GetAccountId()
 	bankName := accountData.GetName()
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println("Account ID: ", accountId, "| Bank Name: ", bankName)
+	log.Println("Account ID: ", accountId, "| Bank Name: ", bankName)
 
 	processorToken, err := CreataDwollaAccount(accessToken, accountId)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println("Processor Token: ", processorToken)
+	log.Println("Processor Token: ", processorToken)
 
 	fundingSrcUrl, err := AddFundingSource(plaidAccount.PlaidUser.DwollaCustomerUrl, processorToken, bankName)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -136,14 +141,14 @@ func GenerateAccessToken(c *gin.Context) {
 	}
 
 	if err = db.CreateBankAccount(PgDb, newPlaidUser); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	plaidUserFromDb, err := db.GetRecordUsingTrackId(PgDb, trackId)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -155,14 +160,14 @@ func GenerateAccessToken(c *gin.Context) {
 func CreateDwollaCustomerId(c *gin.Context) {
 	var dwollaUser BankUser
 	if err := c.ShouldBindJSON(&dwollaUser); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
 
 	customerId, customerUrl, err := CreateDwollaCustomer(dwollaUser)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -173,24 +178,27 @@ func CreateDwollaCustomerId(c *gin.Context) {
 func GetBankAccounts(c *gin.Context) {
 	var userData BankUserId
 	if err := c.ShouldBindJSON(&userData); err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request - " + err.Error()})
 		return
 	}
 
 	plaidDBRecords, err := db.GetAllRecordUsingUserId(PgDb, userData.UserId)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to fetch accounts - " + err.Error()})
 		return
 	}
+
+	log.Println("Plaid DB records: ", plaidDBRecords)
 
 	var accounts []Account
 
 	for _, eachRecord := range plaidDBRecords {
 		accountData, accountItem, err := GetAccounts(eachRecord.AccessToken)
+		// log.Println("AccountData: ", accountData, "| accountItem: ", accountItem)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -199,16 +207,24 @@ func GetBankAccounts(c *gin.Context) {
 			availableBal = strconv.FormatFloat(float64(*accountData.Balances.Available.Get()), 'f', -1, 32)
 		} else {
 			availableBal = ""
-			fmt.Println("Account Available Balance nil")
+			log.Println("Account Available Balance nil")
 		}
+		log.Println("Avail Bal: ", availableBal)
 		currentBal := strconv.FormatFloat(float64(accountData.Balances.GetCurrent()), 'f', -1, 32)
-		institutionId, err := GetAccountInstituionId(accountItem.GetInstitutionId())
+
+		instId := accountItem.GetInstitutionId()
+		if len(instId) == 0 {
+			instId = "ins_1"
+		}
+		institutionId, err := GetAccountInstituionId(instId)
 		if err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-
+		if len(institutionId) == 0 {
+			institutionId = instId
+		}
 		account := Account{
 			Id:               accountData.GetAccountId(),
 			AvailableBalance: availableBal,
@@ -223,6 +239,8 @@ func GetBankAccounts(c *gin.Context) {
 			ShareableId:      eachRecord.ShareableId,
 		}
 
+		log.Println("Account: ", account)
+
 		accounts = append(accounts, account)
 	}
 
@@ -231,19 +249,32 @@ func GetBankAccounts(c *gin.Context) {
 	for _, eachAccount := range accounts {
 		currentBal, err := strconv.ParseFloat(eachAccount.CurrentBalance, 64)
 		if err != nil {
-			fmt.Println("unable to convert current balance str to float64: " + err.Error())
+			log.Println("unable to convert current balance str to float64: " + err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to convert current balance str to float64: " + err.Error()})
 			return
 		}
 		totalCurrentBalance += currentBal
 	}
 
-	fmt.Println("accounts: ", accounts, "| totalBanks: ", totalBanks, "| totalcurrentbal: ", totalCurrentBalance)
+	log.Println("accounts: ", accounts, "| totalBanks: ", totalBanks, "| totalcurrentbal: ", totalCurrentBalance)
 
 	c.JSON(http.StatusOK, gin.H{"accounts": accounts, "totalBanks": strconv.Itoa(totalBanks), "totalCurrentBalance": totalCurrentBalance})
 
 }
 
 func GetBankAccount(c *gin.Context) {
+	// var request TrackIdRequest
+	// if err := c.ShouldBindJSON(&request); err != nil {
+	// 	log.Println("invalid request body: " + err.Error())
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
+	// 	return
+	// }
+
+	// bankDetails, err := db.GetRecordUsingTrackId(PgDb, request.TrackId)
+	// if err != nil {
+	// 	log.Println(err.Error())
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to fetch record using track id: " + err.Error()})
+	// 	return
+	// }
 
 }
