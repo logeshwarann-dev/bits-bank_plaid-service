@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/plaid/plaid-go/plaid"
 )
@@ -14,7 +15,21 @@ var (
 	PlaidAPIClient     *plaid.APIClient
 	SandboxInstitution = "ins_109508"
 	PaymentProcessor   = "dwolla"
+	BOAInstitutionId   = "ins_1"
 )
+
+type PlaidTransaction struct {
+	Id             string `json:"id"`
+	Name           string `json:"name"`
+	PaymentChannel string `json:"paymentChannel"`
+	Type           string `json:"type"`
+	AccountId      string `json:"accountId"`
+	Amount         string `json:"amount"`
+	Pending        string `json:"pending"`
+	Category       string `json:"category"`
+	Date           string `json:"date"`
+	Image          string `json:"image"`
+}
 
 type GetInstitutionReq struct {
 	InstitutionId string   `json:"institution_id"`
@@ -136,4 +151,66 @@ func GetAccountInstituionId(institutionId string) (string, error) {
 	}
 	instId := institutionResponse.Institution.InstitutionId
 	return instId, nil
+}
+
+func GetDefaultInstitutionId(accountItem plaid.Item) (string, error) {
+	instId := accountItem.GetInstitutionId()
+	if len(instId) == 0 {
+		instId = BOAInstitutionId
+	}
+	institutionId, err := GetAccountInstituionId(instId)
+	if err != nil {
+		log.Println(err.Error())
+		if len(institutionId) == 0 {
+			institutionId = instId
+		}
+		return institutionId, err
+
+	}
+	if len(institutionId) == 0 {
+		institutionId = instId
+	}
+
+	return institutionId, nil
+}
+
+func GetTransactionsFromPlaid(accessToken string) ([]PlaidTransaction, error) {
+
+	var plaidTransactions []PlaidTransaction
+
+	ctx := context.Background()
+
+	transactionsSyncReq := plaid.NewTransactionsSyncRequest(accessToken)
+
+	apiTransactionReq := PlaidAPIClient.PlaidApi.TransactionsSync(ctx).TransactionsSyncRequest(*transactionsSyncReq)
+
+	response, _, err := apiTransactionReq.Execute()
+	if err != nil {
+		return []PlaidTransaction{}, fmt.Errorf("error while executing transactions sync request: %v", err.Error())
+	}
+
+	data := response.GetAdded()
+
+	for _, transaction := range data {
+		plaidTransactions = append(plaidTransactions, PlaidTransaction{
+			Id:             transaction.TransactionId,
+			Name:           transaction.Name,
+			PaymentChannel: transaction.PaymentChannel,
+			Type:           transaction.PaymentChannel,
+			AccountId:      transaction.AccountId,
+			Amount:         strconv.FormatFloat(float64(transaction.Amount), 'f', -1, 32),
+			Pending:        strconv.FormatBool(transaction.Pending),
+			Category: func() string {
+				if len(transaction.Category) > 0 {
+					return transaction.Category[0]
+				}
+				return ""
+			}(),
+			Date:  transaction.GetDate(),
+			Image: "https://plaid-category-icons.plaid.com/PFC_GENERAL_MERCHANDISE.png",
+		})
+	}
+
+	return plaidTransactions, nil
+
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,11 +24,26 @@ type User struct {
 }
 
 type TrackIdRequest struct {
-	TrackId string `json:"trackId" binding:"required"`
+	TrackId string `json:"plaidTrackId" binding:"required"`
 }
 
 type BankUserId struct {
 	UserId string `json:"userId" binding:"required"`
+}
+
+type TransactionRequest struct {
+	Name           string `json:"name"`
+	Amount         string `json:"amount"`
+	SenderId       string `json:"senderId"`
+	SenderBankId   string `json:"senderBankId"`
+	ReceiverId     string `json:"receiverId"`
+	ReceiverBankId string `json:"receiverBankId"`
+	Email          string `json:"email"`
+}
+
+type TransactionsUsingBankId struct {
+	total     int              `json:"total"`
+	documents []db.Transaction `json:"documents"`
 }
 
 type Account struct {
@@ -212,19 +228,8 @@ func GetBankAccounts(c *gin.Context) {
 		log.Println("Avail Bal: ", availableBal)
 		currentBal := strconv.FormatFloat(float64(accountData.Balances.GetCurrent()), 'f', -1, 32)
 
-		instId := accountItem.GetInstitutionId()
-		if len(instId) == 0 {
-			instId = "ins_1"
-		}
-		institutionId, err := GetAccountInstituionId(instId)
-		if err != nil {
-			log.Println(err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if len(institutionId) == 0 {
-			institutionId = instId
-		}
+		institutionId, _ := GetDefaultInstitutionId(accountItem)
+
 		account := Account{
 			Id:               accountData.GetAccountId(),
 			AvailableBalance: availableBal,
@@ -263,18 +268,145 @@ func GetBankAccounts(c *gin.Context) {
 }
 
 func GetBankAccount(c *gin.Context) {
-	// var request TrackIdRequest
-	// if err := c.ShouldBindJSON(&request); err != nil {
-	// 	log.Println("invalid request body: " + err.Error())
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
-	// 	return
-	// }
+	var request TrackIdRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		log.Println("invalid request body: " + err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body: " + err.Error()})
+		return
+	}
 
-	// bankDetails, err := db.GetRecordUsingTrackId(PgDb, request.TrackId)
-	// if err != nil {
-	// 	log.Println(err.Error())
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to fetch record using track id: " + err.Error()})
-	// 	return
-	// }
+	bankDetails, err := db.GetRecordUsingTrackId(PgDb, request.TrackId)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to fetch record using track id: " + err.Error()})
+		return
+	}
 
+	accountData, accountItem, err := GetAccounts(bankDetails.AccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var availableBal string
+	if accountData.Balances.Available.IsSet() {
+		availableBal = strconv.FormatFloat(float64(*accountData.Balances.Available.Get()), 'f', -1, 32)
+	} else {
+		availableBal = ""
+		log.Println("Account Available Balance nil")
+	}
+	currentBal := strconv.FormatFloat(float64(accountData.Balances.GetCurrent()), 'f', -1, 32)
+
+	institutionId, _ := GetDefaultInstitutionId(accountItem)
+
+	transferTransactionsData, err := GetTransactionsByBankId(PgDb, bankDetails.TrackId)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var transferTransactions []PlaidTransaction
+	for _, eachTransaction := range transferTransactionsData.documents {
+		transferTransactions = append(transferTransactions, PlaidTransaction{
+			Id:             eachTransaction.TransactionId,
+			Name:           eachTransaction.Name,
+			Amount:         eachTransaction.Amount,
+			Date:           utils.ExtractTimeStamp(eachTransaction.TransactionId),
+			PaymentChannel: eachTransaction.Channel,
+			Category:       eachTransaction.Category,
+			Type: func() string {
+				if eachTransaction.SenderBankId == bankDetails.TrackId {
+					return "debit"
+				}
+				return "credit"
+			}(),
+		})
+	}
+
+	transactions, err := GetTransactionsFromPlaid(bankDetails.AccessToken)
+	if err != nil {
+		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	account := Account{
+		Id:               accountData.GetAccountId(),
+		AvailableBalance: availableBal,
+		CurrentBalance:   currentBal,
+		InstitutionId:    institutionId,
+		Name:             accountData.Name,
+		OfficialName:     accountData.GetOfficialName(),
+		Mask:             accountData.GetMask(),
+		Type:             string(accountData.GetType()),
+		SubType:          string(*accountData.Subtype.Get()),
+		PlaidTrackId:     bankDetails.TrackId,
+		ShareableId:      bankDetails.ShareableId,
+	}
+
+	allTransactions := append(transactions, transferTransactions...)
+
+	// Sort the combined slice by date in descending order
+	sort.Slice(allTransactions, func(i, j int) bool {
+		dateFormat := "2006-01-02"
+		dateI, errI := time.Parse(dateFormat, allTransactions[i].Date)
+		dateJ, errJ := time.Parse(dateFormat, allTransactions[j].Date)
+		if errI != nil || errJ != nil {
+			return false
+		}
+		return dateJ.Before(dateI)
+	})
+
+	log.Println("Account: ", account, "| transactions: ", allTransactions)
+	c.JSON(http.StatusOK, gin.H{"data": account, "transactions": allTransactions})
+
+}
+
+func CreateTransaction(bankdb *gorm.DB, transactionReq TransactionRequest) (db.Transaction, error) {
+
+	transactionId := fmt.Sprintf("TRANSCT%v", time.Now().Format("20060102150405"))
+	transactionRecord := db.Transaction{
+		TransactionId:  transactionId,
+		Amount:         transactionReq.Amount,
+		Channel:        "online",
+		Category:       "Transfer",
+		SenderId:       transactionReq.SenderId,
+		ReceiverId:     transactionReq.ReceiverId,
+		SenderBankId:   transactionReq.SenderBankId,
+		ReceiverBankId: transactionReq.ReceiverBankId,
+	}
+
+	if err := db.AddTransaction(bankdb, transactionRecord); err != nil {
+		return db.Transaction{}, err
+	}
+
+	transaction, err := db.GetTransactionUsingId(bankdb, transactionId)
+	if err != nil {
+		return db.Transaction{}, err
+	}
+
+	return transaction, nil
+}
+
+func GetTransactionsByBankId(bankdb *gorm.DB, bankId string) (TransactionsUsingBankId, error) {
+
+	senderBankDocs, err := db.GetTransactionUsingSenderBankId(bankdb, bankId)
+	if err != nil {
+		return TransactionsUsingBankId{}, fmt.Errorf("error while fetching transactions using sender bank id: %v ", err.Error())
+	}
+
+	receiverBankDocs, err := db.GetTransactionUsingReceiverBankId(bankdb, bankId)
+	if err != nil {
+		return TransactionsUsingBankId{}, fmt.Errorf("error while fetching transactions using receiver bank id: %v ", err.Error())
+	}
+
+	docs := append(senderBankDocs, receiverBankDocs...)
+
+	transactions := TransactionsUsingBankId{
+		total:     len(senderBankDocs) + len(receiverBankDocs),
+		documents: docs,
+	}
+
+	return transactions, nil
 }

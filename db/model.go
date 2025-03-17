@@ -45,6 +45,22 @@ func (PlaidUser) TableName() string {
 	return "plaid_users"
 }
 
+type Transaction struct {
+	TransactionId  string `gorm:"primaryKey"`
+	Name           string `gorm:"not null"`
+	Amount         string `gorm:"not null"`
+	Channel        string `gorm:"not null"`
+	Category       string `gorm:"not null"`
+	SenderId       string `gorm:"not null"`
+	ReceiverId     string `gorm:"not null"`
+	SenderBankId   string `gorm:"not null"`
+	ReceiverBankId string `gorm:"not null"`
+}
+
+func (Transaction) TableName() string {
+	return "transactions"
+}
+
 // func (s *SignUpForm) ConvertToUser() *BankUser {
 // 	return &BankUser{
 // 		Email:       s.Email,

@@ -2,8 +2,10 @@ package utils
 
 import (
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/logeshwarann-dev/bits-bank_plaid-service/db"
@@ -33,4 +35,19 @@ func DecryptID(encoded string) (string, error) {
 		return "", err
 	}
 	return string(decodedBytes), nil
+}
+
+func ExtractTimeStamp(value string) string {
+	datePart := value[7:15]
+
+	// Parse the date part
+	date, err := time.Parse("20060102", datePart)
+	if err != nil {
+		fmt.Println("Error parsing date:", err)
+		return ""
+	}
+
+	// Format the date as YYYY-MM-DD
+	formattedDate := date.Format("2006-01-02")
+	return formattedDate
 }

@@ -77,3 +77,43 @@ func GetAllRecordUsingUserId(bankdb *gorm.DB, userId string) ([]PlaidUser, error
 	}
 	return accounts, nil
 }
+
+func AddTransaction(bankdb *gorm.DB, transaction Transaction) error {
+	if err := bankdb.Create(&transaction).Error; err != nil {
+		log.Println(err.Error())
+		return fmt.Errorf("error while adding transaction entry in db: %v", err.Error())
+	}
+	return nil
+}
+
+func GetTransactionUsingId(bankdb *gorm.DB, transactionId string) (Transaction, error) {
+	var transaction Transaction
+	result := bankdb.Where("transaction_id = ?", transactionId).Find(&transaction)
+	if result.Error != nil {
+		log.Println("Error: ", result.Error)
+		return Transaction{}, errors.New("no records found")
+	}
+	return transaction, nil
+}
+
+func GetTransactionUsingSenderBankId(bankdb *gorm.DB, senderBankId string) ([]Transaction, error) {
+	var transaction []Transaction
+	result := bankdb.Where("sender_bank_id = ?", senderBankId).Find(&transaction)
+	if result.Error != nil {
+		log.Println("Error: ", result.Error)
+		return []Transaction{}, errors.New("no records found")
+	}
+	return transaction, nil
+}
+
+func GetTransactionUsingReceiverBankId(bankdb *gorm.DB, receiverBankId string) ([]Transaction, error) {
+	var transaction []Transaction
+	result := bankdb.Where("received_bank_id = ?", receiverBankId).Find(&transaction)
+	if result.Error != nil {
+		log.Println("Error: ", result.Error)
+		return []Transaction{}, errors.New("no records found")
+	}
+	return transaction, nil
+}
+
+// func GetTransaction
