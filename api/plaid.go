@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/plaid/plaid-go/plaid"
 )
@@ -16,6 +17,7 @@ var (
 	SandboxInstitution = "ins_109508"
 	PaymentProcessor   = "dwolla"
 	BOAInstitutionId   = "ins_1"
+	ChaseInstitutionId = "ins_56"
 )
 
 type PlaidTransaction struct {
@@ -155,8 +157,12 @@ func GetAccountInstituionId(institutionId string) (string, error) {
 
 func GetDefaultInstitutionId(accountItem plaid.Item) (string, error) {
 	instId := accountItem.GetInstitutionId()
-	if len(instId) == 0 {
+	fmt.Println("Account Item: ", accountItem)
+	institutionName, _ := accountItem.AdditionalProperties["institution_name"].(string)
+	if len(instId) == 0 && (strings.Contains(institutionName, "Bank of America")) {
 		instId = BOAInstitutionId
+	} else if len(instId) == 0 && (strings.Contains(institutionName, "Chase")) {
+		instId = ChaseInstitutionId
 	}
 	institutionId, err := GetAccountInstituionId(instId)
 	if err != nil {

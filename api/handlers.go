@@ -358,7 +358,7 @@ func GetBankAccount(c *gin.Context) {
 		return dateJ.Before(dateI)
 	})
 
-	log.Println("Account: ", account, "| transactions: ", allTransactions)
+	// log.Println("Account: ", account, "| transactions: ", allTransactions)
 	c.JSON(http.StatusOK, gin.H{"data": account, "transactions": allTransactions})
 
 }
