@@ -30,10 +30,12 @@ func EncryptID(id string) string {
 
 func DecryptID(encoded string) (string, error) {
 	decodedBytes, err := base64.StdEncoding.DecodeString(encoded)
+	// fmt.Println("Decoded byte: ", decodedBytes)
 	if err != nil {
 		log.Println(err.Error())
 		return "", err
 	}
+	// fmt.Println("Converted String: ", string(decodedBytes))
 	return string(decodedBytes), nil
 }
 

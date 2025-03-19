@@ -426,11 +426,14 @@ func TransferPayment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
 		return
 	}
+
+	// fmt.Println("Request body: ", paymentTransferReq)
 	receiverAccountId, err := utils.DecryptID(paymentTransferReq.ShareableId)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to decrypt shareable id: " + err.Error()})
 		return
 	}
+	// log.Println("Receiver Account ID: ", receiverAccountId)
 
 	receiverBank, err := db.GetRecordUsingAccountId(PgDb, receiverAccountId)
 	if err != nil {
@@ -444,6 +447,8 @@ func TransferPayment(c *gin.Context) {
 	}
 
 	ctx := context.Background()
+	log.Println("Receiver Bank: ", receiverBank)
+	log.Println("Sender Bank: ", senderBank)
 	transferRes, err := CreateTransfer(ctx, senderBank.FundingSourceUrl, receiverBank.FundingSourceUrl, paymentTransferReq.Amount)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "transfer failed: " + err.Error()})

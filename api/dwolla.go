@@ -130,12 +130,15 @@ func CreateTransfer(ctx context.Context, sourceFundingSourceUrl string, destinat
 
 	var transferReq TransferRequestBody
 
-	transferReq.Links["source"] = dwolla.Link{
+	transferLinks := make(dwolla.Links)
+	transferLinks["source"] = dwolla.Link{
 		Href: sourceFundingSourceUrl,
 	}
-	transferReq.Links["destination"] = dwolla.Link{
+	transferLinks["destination"] = dwolla.Link{
 		Href: destinationFundingSourceUrl,
 	}
+
+	transferReq.Links = transferLinks
 	transferReq.Amount = dwolla.Amount{
 		Currency: dwolla.USD,
 		Value:    amount,
