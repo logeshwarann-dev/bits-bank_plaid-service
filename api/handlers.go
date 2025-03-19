@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -42,8 +43,16 @@ type TransactionRequest struct {
 }
 
 type TransactionsUsingBankId struct {
-	total     int              `json:"total"`
-	documents []db.Transaction `json:"documents"`
+	Total     int              `json:"total"`
+	Documents []db.Transaction `json:"documents"`
+}
+
+type PaymentTransfer struct {
+	Name        string `json:"name"`
+	Email       string `json:"email"`
+	Amount      string `json:"amount"`
+	SenderBank  string `json:"senderBank"`
+	ShareableId string `json:"sharableId"`
 }
 
 type Account struct {
@@ -307,7 +316,7 @@ func GetBankAccount(c *gin.Context) {
 	}
 
 	var transferTransactions []PlaidTransaction
-	for _, eachTransaction := range transferTransactionsData.documents {
+	for _, eachTransaction := range transferTransactionsData.Documents {
 		transferTransactions = append(transferTransactions, PlaidTransaction{
 			Id:             eachTransaction.TransactionId,
 			Name:           eachTransaction.Name,
@@ -404,9 +413,65 @@ func GetTransactionsByBankId(bankdb *gorm.DB, bankId string) (TransactionsUsingB
 	docs := append(senderBankDocs, receiverBankDocs...)
 
 	transactions := TransactionsUsingBankId{
-		total:     len(senderBankDocs) + len(receiverBankDocs),
-		documents: docs,
+		Total:     len(senderBankDocs) + len(receiverBankDocs),
+		Documents: docs,
 	}
 
 	return transactions, nil
+}
+
+func TransferPayment(c *gin.Context) {
+	var paymentTransferReq PaymentTransfer
+	if err := c.ShouldBindJSON(&paymentTransferReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: " + err.Error()})
+		return
+	}
+	receiverAccountId, err := utils.DecryptID(paymentTransferReq.ShareableId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to decrypt shareable id: " + err.Error()})
+		return
+	}
+
+	receiverBank, err := db.GetRecordUsingAccountId(PgDb, receiverAccountId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "unable to fetch record using bank id: " + err.Error()})
+		return
+	}
+
+	senderBank, err := db.GetRecordUsingTrackId(PgDb, paymentTransferReq.SenderBank)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+
+	ctx := context.Background()
+	transferRes, err := CreateTransfer(ctx, senderBank.FundingSourceUrl, receiverBank.FundingSourceUrl, paymentTransferReq.Amount)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "transfer failed: " + err.Error()})
+	}
+
+	transferId := transferRes["id"]
+	transferUrl := fmt.Sprintf("%s/transfer/%v", DwollaBaseUrl, transferId)
+	log.Println("Transfer URL: ", transferUrl)
+	if len(transferUrl) > 50 {
+
+		transactionReq := TransactionRequest{
+			Name:           paymentTransferReq.Name,
+			Amount:         paymentTransferReq.Amount,
+			SenderId:       senderBank.UserId,
+			SenderBankId:   senderBank.TrackId,
+			ReceiverId:     receiverBank.UserId,
+			ReceiverBankId: receiverBank.TrackId,
+			Email:          paymentTransferReq.Email,
+		}
+
+		transactionRes, err := CreateTransaction(PgDb, transactionReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "transaction failed: " + err.Error()})
+			return
+		}
+
+		log.Println("Transaction Complete: ", transactionRes)
+		c.JSON(http.StatusOK, gin.H{"data": transactionRes})
+	}
+
 }

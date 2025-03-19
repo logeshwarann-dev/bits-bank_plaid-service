@@ -22,6 +22,11 @@ type FundingSourcePayload struct {
 	PlaidToken string       `json:"plaidToken"`
 }
 
+type TransferRequestBody struct {
+	Links  dwolla.Links  `json:"_links"`
+	Amount dwolla.Amount `json:"amount"`
+}
+
 func CreateDwollaClient() {
 	DwollaClient = dwolla.New(DwollaKey, DwollaSecret, dwolla.Sandbox)
 }
@@ -119,6 +124,36 @@ func AddFundingSource(dwollaCustomerUrl string, processorToken string, bankName 
 	return fundingSourceUrl, nil
 
 	// CreateFundingSource(dwollaAuthLinks, ctx, dwollaCustomerId, processorToken, bankName)
+}
+
+func CreateTransfer(ctx context.Context, sourceFundingSourceUrl string, destinationFundingSourceUrl string, amount string) (map[string]interface{}, error) {
+
+	var transferReq TransferRequestBody
+
+	transferReq.Links["source"] = dwolla.Link{
+		Href: sourceFundingSourceUrl,
+	}
+	transferReq.Links["destination"] = dwolla.Link{
+		Href: destinationFundingSourceUrl,
+	}
+	transferReq.Amount = dwolla.Amount{
+		Currency: dwolla.USD,
+		Value:    amount,
+	}
+
+	log.Println("Transfer Request: ", transferReq)
+
+	transferUrl := fmt.Sprintf("%s/transfers", DwollaBaseUrl)
+
+	headers := &http.Header{}
+	var responseContainer map[string]interface{}
+	if err := DwollaClient.Post(ctx, transferUrl, transferReq, headers, &responseContainer); err != nil {
+		log.Println(err.Error())
+		return nil, fmt.Errorf("error while creating dwolla transfer: %v", err.Error())
+	}
+	log.Println("Dwolla Transfer Response:  ", responseContainer)
+	return responseContainer, nil
+
 }
 
 func RetrieveAccount(client *dwolla.Client) error {

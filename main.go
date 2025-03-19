@@ -37,5 +37,6 @@ func main() {
 	router.POST("/plaid/v1/dwolla/customer/create", api.CreateDwollaCustomerId)
 	router.POST("/plaid/v1/get/accounts", api.GetBankAccounts)
 	router.POST("/plaid/v1/get/account", api.GetBankAccount)
+	router.POST("/plaid/v1/dwolla/transfer", api.TransferPayment)
 	router.Run(":8090")
 }
