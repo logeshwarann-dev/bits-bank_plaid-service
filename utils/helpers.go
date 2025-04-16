@@ -7,15 +7,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/logeshwarann-dev/bits-bank_plaid-service/db"
 )
 
 func LoadEnv() {
-	if err := godotenv.Load(); err != nil {
-		log.Println(err.Error())
-		log.Fatal("Error loading .env file: ", err.Error())
-	}
+	// if err := godotenv.Load(); err != nil {
+	// 	log.Println(err.Error())
+	// 	log.Fatal("Error loading .env file: ", err.Error())
+	// }
 	db.DB_HOST = os.Getenv("DB_HOST")
 	db.DB_PWD = os.Getenv("DB_PWD")
 	db.DB_NAME = os.Getenv("DB_NAME")
