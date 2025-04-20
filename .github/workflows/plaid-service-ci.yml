@@ -45,4 +45,4 @@ jobs:
       - 
         name: Deploy to EKS
         run: |
-          kubectl set image statefulset/bits-auth-svc bits-auth-svc=${{ vars.DOCKERHUB_USERNAME }}/bits-bank-auth:${{ env.TAG }} -n default
+          kubectl set image statefulset/bits-plaid-svc bits-plaid-svc=${{ vars.DOCKERHUB_USERNAME }}/bits-bank-plaid:${{ env.TAG }} -n default
