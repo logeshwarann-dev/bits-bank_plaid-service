@@ -17,7 +17,7 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 RUN go build -ldflags="-s -w" -o plaid-service .
 
 # --- Final Stage ---
-FROM scratch
+FROM gcr.io/distroless/base-debian12
 
 WORKDIR /app
 
